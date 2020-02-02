@@ -9,7 +9,6 @@ import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,6 +17,8 @@ import au.com.per.delv.dto.builder.UserInfoDtoBuilder;
 import au.com.per.delv.persistence.entity.UserInfo;
 import au.com.per.delv.persistence.rep.IUserInfoRepository;
 import au.com.per.delv.util.PasswordUtil;
+
+import static au.com.per.delv.persistence.PersistenceError.*;
 
 @Service
 public class UserServiceImpl implements IUserService{
@@ -38,33 +39,49 @@ public class UserServiceImpl implements IUserService{
 		userInfoRepository.findAll().forEach(obj -> list.add(convertFromEntityToDto(obj)));
 		return list;
 	}
+	
+	@Override
+	public UserInfoDto getByEmail(String email) {
+		
+		if(email == null) throw new IllegalArgumentException(PARAMETER_NULL.toString() + " : email");
+		
+		UserInfo userInfo = userInfoRepository.findByEmail(email);
+		if(userInfo != null) {
+			return convertFromEntityToDto(userInfo);
+		}
+		return new UserInfoDtoBuilder().setErrorMessage(NOT_FOUND.toString() + " | email: " + email).build();
+	}
 
 	@Override
 	public UserInfoDto getByUsername(String username) {
 		
-		if(username == null) throw new IllegalArgumentException("Paramater 'username' can't be null");
+		if(username == null) throw new IllegalArgumentException(PARAMETER_NULL.toString() + " : username");
 		
 		UserInfo userInfo = userInfoRepository.findByUsername(username);
 		if(userInfo != null) {
 			return convertFromEntityToDto(userInfo);
 		}
-		return new UserInfoDtoBuilder().setErrorMessage("User '" + username + "' not found").build();
+		return new UserInfoDtoBuilder().setErrorMessage(NOT_FOUND.toString() + " | username: " + username).build();
 	}
-
+	
 	@Override
 	@Transactional
 	public Optional<UserInfoDto> add(UserInfoDto dto) {
 		
-		if(dto == null) throw new IllegalArgumentException("Paramater 'dto' can't be null");
+		if(dto == null) 
+			throw new IllegalArgumentException(PARAMETER_NULL.toString() + " : dto");
 		
+		if(getByUsername(dto.getUsername()).getErrorMessage() == null) 
+			return Optional.of(new UserInfoDtoBuilder().setErrorMessage(ALREADY_EXIST.toString() + " | username: " + dto.getUsername()).build());
+		if(getByEmail(dto.getEmail()).getErrorMessage() == null) 
+			return Optional.of(new UserInfoDtoBuilder().setErrorMessage(ALREADY_EXIST.toString() + " | email: " + dto.getEmail()).build()); 
+			
 		try {
 			return Optional.of(convertFromEntityToDto((userInfoRepository.save(convertFromDtoToEntity(dto)))));
 		} catch (NoSuchAlgorithmException | InvalidKeySpecException e) {
 			log.warn("Unable to convert from dto to entity | Ex: " + e.getMessage());
 			return Optional.empty();
-		} catch (DataIntegrityViolationException e) {
-			return Optional.of(new UserInfoDtoBuilder().setErrorMessage("User already exists").build());
-        }
+		}
 	}
 
 	@Override
@@ -77,14 +94,14 @@ public class UserServiceImpl implements IUserService{
 	@Transactional
 	public void delete(Integer id) {
 		
-		if(id == null) throw new IllegalArgumentException("Paramater 'id' can't be null");
+		if(id == null) throw new IllegalArgumentException(PARAMETER_NULL.toString() + " : id");
 		userInfoRepository.deleteById(id);
 	}
 	
 	@Transactional
 	public void deleteByUsername(String username) {
 		 
-		if(username == null) throw new IllegalArgumentException("Paramater 'username' can't be null");
+		if(username == null) throw new IllegalArgumentException(PARAMETER_NULL.toString() + " : username");
 		userInfoRepository.deleteByUsername(username);
 	}
 
