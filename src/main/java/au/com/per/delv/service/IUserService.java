@@ -1,11 +1,14 @@
 package au.com.per.delv.service;
 
-import au.com.per.delv.dto.UserInfoDto;
+import java.util.Optional;
+
 import au.com.per.delv.persistence.entity.UserInfo;
 
-public interface IUserService extends IRootService<UserInfoDto, UserInfo>{
+public interface IUserService extends IPersistenceService<UserInfo>{
 
-	public UserInfoDto getByUsername(String username);
-	public UserInfoDto getByEmail(String email);
+	public Optional<UserInfo> getByEmail(String email);
+	public Optional<UserInfo> getById(Integer id);
+	public Optional<UserInfo> getByUsername(String username);
+
 	public void deleteByUsername(String username);
 }

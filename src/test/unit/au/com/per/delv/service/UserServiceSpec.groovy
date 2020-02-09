@@ -5,15 +5,16 @@ import spock.lang.Specification
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.dao.DataIntegrityViolationException;
 
-import au.com.per.delv.dto.UserInfoDto
 import au.com.per.delv.service.IUserService
 import au.com.per.delv.persistence.entity.UserInfo
 import au.com.per.delv.persistence.rep.IUserInfoRepository
+import au.com.per.delv.persistence.entity.builder.UserInfoBuilder
 
 import java.util.Optional;
-import java.lang.IllegalArgumentException
 
-import static au.com.per.delv.persistence.PersistenceError.*
+import static au.com.per.delv.EnumError.*
+
+import java.lang.IllegalArgumentException
 
 class UserServiceSpec extends Specification {
 
@@ -26,45 +27,43 @@ class UserServiceSpec extends Specification {
 		userService = new UserServiceImpl(repo)
 	}
 
-	def "getList:: non empty list is returned when users exist"(){
+	def "getAll:: non empty list is returned when users exist"(){
 		
 		given: "a list exists"
-		UserInfo entityUserInfo1 = new UserInfo()
-		entityUserInfo1.setId(1)
-		UserInfo entityUserInfo2 = new UserInfo()
-		entityUserInfo2.setId(2)
+		UserInfo entityUserInfo1 = UserInfoBuilder.builder().setId(1).build()
+		UserInfo entityUserInfo2 = UserInfoBuilder.builder().setId(2).build()
 
-		List<UserInfo> entityUserInfoList = [entityUserInfo1, entityUserInfo2]
+		List<UserInfo> toReturnUserInfoList = [entityUserInfo1, entityUserInfo2]
 
 		and: "repository always returns above list"
-		repo.findAll() >> entityUserInfoList
+		repo.findAll() >> toReturnUserInfoList
 
 		when: "user with username is fetched from service"
-		List<UserInfoDto> dtoUserInfoList = userService.getList()
+		List<UserInfo> userInfoList = userService.getAll()
 
 		then:
-		dtoUserInfoList.size == 2
+		userInfoList.size == 2
 	}
 
-	def "getList:: empty list is returned when users don't exist"(){
+	def "getAll:: empty list is returned when users don't exist"(){
 		
 		given: "an empty list exists"
-		List<UserInfo> entityUserInfoList = []
+		List<UserInfo> toReturnUserInfoList = []
 
 		and: "repository always returns above list"
-		repo.findAll() >> entityUserInfoList
+		repo.findAll() >> toReturnUserInfoList
 
 		when: "user with username is fetched from service"
-		List<UserInfoDto> dtoUserInfoList = userService.getList()
+		List<UserInfo> userInfoList = userService.getAll()
 
 		then:
-		dtoUserInfoList.size == 0
+		userInfoList.size == 0
 	}
 
 	def "getByEmail:: IllegalArgumentException is thrown when null parameter is passed"(){
 		
 		when: "user with email is fetched from service"
-		def dtoUserInfo = userService.getByEmail(null)
+		Optional<UserInfo> opt = userService.getByEmail(null)
 
 		then:
 		IllegalArgumentException exception = thrown()
@@ -74,17 +73,16 @@ class UserServiceSpec extends Specification {
 	def "getByEmail:: user exists with email"(){
 		
 		given: "a customer exists with email"
-		UserInfo entityUserInfo = new UserInfo()
-		entityUserInfo.setEmail(emailPassed)
+		UserInfo entityUserInfo = UserInfoBuilder.builder().setEmail(emailPassed).build()
 
 		and: "repository always returns above entity"
-		repo.findByEmail(entityUserInfo.getEmail()) >> entityUserInfo
+		repo.findByEmail(entityUserInfo.getEmail()) >> Optional.of(entityUserInfo)
 
 		when: "user with email is fetched from service"
-		def dtoUserInfo = userService.getByEmail(entityUserInfo.getEmail())
+		Optional<UserInfo> opt = userService.getByEmail(entityUserInfo.getEmail())
 
 		then:
-		dtoUserInfo.getEmail() == expected
+		opt.get().getEmail() == expected
 
 		where:
 		emailPassed = "umarali@email.com"
@@ -93,11 +91,14 @@ class UserServiceSpec extends Specification {
 
 	def "getByEmail:: user does not exist"(){
 		
+		given: "repository always returns empty"
+		repo.findByEmail(emailPassed) >> Optional.empty()
+
 		when: "user with email is fetched from service"
-		def dtoUserInfo = userService.getByEmail(emailPassed)
+		Optional<UserInfo> opt = userService.getByEmail(emailPassed)
 
 		then:
-		dtoUserInfo.getErrorMessage().contains(NOT_FOUND.toString())
+		opt.isPresent() == false
 
 		where:
 		emailPassed = "umarali@email.com"
@@ -106,7 +107,7 @@ class UserServiceSpec extends Specification {
 	def "getByUsername:: IllegalArgumentException is thrown when null parameter is passed"(){
 		
 		when: "user with username is fetched from service"
-		def dtoUserInfo = userService.getByUsername(null)
+		Optional<UserInfo> opt = userService.getByUsername(null)
 
 		then:
 		IllegalArgumentException exception = thrown()
@@ -116,17 +117,16 @@ class UserServiceSpec extends Specification {
 	def "getByUsername:: user exists with username"(){
 		
 		given: "a customer exists with username"
-		UserInfo entityUserInfo = new UserInfo()
-		entityUserInfo.setUsername(usernamePassed)
+		UserInfo entityUserInfo = UserInfoBuilder.builder().setUsername(usernamePassed).build()
 
 		and: "repository always returns above entity"
-		repo.findByUsername(entityUserInfo.getUsername()) >> entityUserInfo
+		repo.findByUsername(entityUserInfo.getUsername()) >> Optional.of(entityUserInfo)
 
 		when: "user with username is fetched from service"
-		def dtoUserInfo = userService.getByUsername(entityUserInfo.getUsername())
+		Optional<UserInfo> opt = userService.getByUsername(entityUserInfo.getUsername())
 
 		then:
-		dtoUserInfo.getUsername() == expected
+		opt.get().getUsername() == expected
 
 		where:
 		usernamePassed = "umarali"
@@ -135,11 +135,14 @@ class UserServiceSpec extends Specification {
 
 	def "getByUsername:: user does not exist"(){
 		
+		given: "repository always returns empty"
+		repo.findByUsername(usernamePassed) >> Optional.empty()
+		
 		when: "user with username is fetched from service"
-		def dtoUserInfo = userService.getByUsername(usernamePassed)
+		Optional<UserInfo> opt = userService.getByUsername(usernamePassed)
 
 		then:
-		dtoUserInfo.getErrorMessage().contains(NOT_FOUND.toString())
+		opt.isPresent() == false
 
 		where:
 		usernamePassed = "umarali"
@@ -148,92 +151,23 @@ class UserServiceSpec extends Specification {
 	def "add:: user is added"(){
 		
 		given: "object is created with username, email, password and active"
-		UserInfoDto dtoUserInfo = new UserInfoDto(null, username, email, password, active, null)
+		UserInfo userInfo = UserInfoBuilder.builder().setUsername(username).setPassword(password).build()
 
 		and:
-		UserInfo entUserInfo = userService.convertFromDtoToEntity(dtoUserInfo)
-		entUserInfo.setId(id)
-
-		and:
-		repo.findByUsername(username) >> null
-
-		and:
-		repo.findByEmail(email) >> null
-
-		and:
-		repo.save(_) >> entUserInfo
+		repo.save(_) >> userInfo
 
 		when: "user is added using service"
-		Optional<UserInfoDto> opt = userService.add(dtoUserInfo)
+		UserInfo returnedUserInfo = userService.add(userInfo)
 		
 		then:
-		opt.get() != null
-		opt.get().getUsername() != null
-		opt.get().getUsername() == username
+		returnedUserInfo != null
+		returnedUserInfo.getUsername() != null
+		returnedUserInfo.getUsername() == username
 		
 		where:
-		id = 1
 		username = "username"
-		email = "username@email.com"
 		password = "password"
-		active = 1
-	}
-
-	def "add:: user is added with existing username"(){
-		
-		given: "object is created with username, email, password and active"
-		UserInfoDto dtoUserInfo = new UserInfoDto(null, username, email, password, active, null)
-
-		and:
-		UserInfo entUserInfo = userService.convertFromDtoToEntity(dtoUserInfo)
-		entUserInfo.setId(id)
-
-		and: "object with username already exists"
-		repo.findByUsername(username) >> entUserInfo
-		
-		when: "user is added using service"
-		Optional<UserInfoDto> opt = userService.add(dtoUserInfo)
-		
-		then:
-		opt.get() != null
-		opt.get().getErrorMessage() == ALREADY_EXIST.toString()  + " | username: " + username
-		
-		where:
-		id = 1
-		username = "username"
 		email = "username@email.com"
-		password = "password"
-		active = 1
-	}
-
-	def "add:: user is added with existing email"(){
-		
-		given: "object is created with username, email, password and active"
-		UserInfoDto dtoUserInfo = new UserInfoDto(null, username, email, password, active, null)
-
-		and:
-		UserInfo entUserInfo = userService.convertFromDtoToEntity(dtoUserInfo)
-		entUserInfo.setId(id)
-
-		and: "object with username doesn't exist"
-		repo.findByUsername(username) >> null
-
-		and: "object with email already exists"
-		repo.findByEmail(email) >> entUserInfo
-
-		when: "user is added using service"
-		Optional<UserInfoDto> opt = userService.add(dtoUserInfo)
-		
-		then:
-		opt.get() != null
-		opt.get().getErrorMessage() == ALREADY_EXIST.toString()  + " | email: " + email
-		
-		where:
-		id = 1
-		username = "username"
-		email = "username@email.com"
-		password = "password"
-		active = 1
 	}
 
 	def "add:: IllegalArgumentException is thrown when null parameter is passed"(){
@@ -246,10 +180,10 @@ class UserServiceSpec extends Specification {
 		exception.message.contains(PARAMETER_NULL.toString())
 	}
 
-	def "delete:: user is deleted by id"(){
+	def "deleteById:: user is deleted by id"(){
 		
 		when: "delete method called with non-null parameter"
-		userService.delete(id)
+		userService.deleteById(id)
 
 		then:
 		1 * repo.deleteById(_)
@@ -259,10 +193,10 @@ class UserServiceSpec extends Specification {
 		id = 1
 	}
 	
-	def "delete:: IllegalArgumentException is thrown when null parameter is passed"(){
+	def "deleteById:: IllegalArgumentException is thrown when null parameter is passed"(){
 		
 		when: "delete method called with null parameter"
-		userService.delete(null)
+		userService.deleteById(null)
 
 		then:
 		IllegalArgumentException exception = thrown()

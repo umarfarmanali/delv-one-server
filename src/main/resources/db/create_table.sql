@@ -33,3 +33,71 @@ TABLESPACE pg_default;
 
 ALTER TABLE public.user_info
     OWNER to delv_one;
+    
+-- Table: policy
+-- DROP TABLE policy;
+CREATE TABLE policy
+(
+	id integer NOT NULL,
+ 	name character varying(50) NOT NULL,
+	CONSTRAINT policy_pkey PRIMARY KEY (id)
+)
+WITH (
+  OIDS=FALSE
+);
+ALTER TABLE policy
+  OWNER TO delv_one;
+
+-- Table: role
+-- DROP TABLE role;
+CREATE TABLE role
+(
+	id integer NOT NULL,
+	name character varying NOT NULL,
+	CONSTRAINT role_pkey PRIMARY KEY (id)
+)
+WITH (
+  OIDS=FALSE
+);
+ALTER TABLE role
+  OWNER TO delv_one;
+
+-- Table: role_policy
+-- DROP TABLE role_policy;
+CREATE TABLE role_policy
+(
+	role_id integer NOT NULL,
+	policy_id integer NOT NULL,
+	CONSTRAINT role_policy_pkey PRIMARY KEY (role_id, policy_id),
+  	CONSTRAINT role_policy_fkey_policy_id FOREIGN KEY (policy_id)
+      REFERENCES policy (id) MATCH SIMPLE
+      ON UPDATE NO ACTION ON DELETE NO ACTION,
+  	CONSTRAINT role_policy_fkey_role_id FOREIGN KEY (role_id)
+      REFERENCES role (id) MATCH SIMPLE
+      ON UPDATE NO ACTION ON DELETE NO ACTION
+)
+WITH (
+  OIDS=FALSE
+);
+ALTER TABLE role_policy
+  OWNER TO delv_one;
+  
+-- Table: user_role
+-- DROP TABLE user_role;
+CREATE TABLE user_role
+(
+  	user_info_id integer NOT NULL,
+  	role_id integer NOT NULL,
+  	CONSTRAINT user_role_pkey PRIMARY KEY (user_info_id, role_id),
+  	CONSTRAINT user_role_fkey_role_id FOREIGN KEY (role_id)
+      REFERENCES role (id) MATCH SIMPLE
+      ON UPDATE NO ACTION ON DELETE NO ACTION,
+  	CONSTRAINT user_role_fkey_user_info_id FOREIGN KEY (user_info_id)
+      REFERENCES user_info (id) MATCH SIMPLE
+      ON UPDATE NO ACTION ON DELETE NO ACTION
+)
+WITH (
+  OIDS=FALSE
+);
+ALTER TABLE user_role
+  OWNER TO delv_one;
